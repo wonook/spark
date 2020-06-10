@@ -1212,8 +1212,12 @@ private[spark] class DAGScheduler(
     if (tasks.size > 0) {
       logInfo(s"Submitting ${tasks.size} missing tasks from $stage (${stage.rdd}) (first 15 " +
         s"tasks are for partitions ${tasks.take(15).map(_.partitionId)})")
-      taskScheduler.submitTasks(new TaskSet(
-        tasks.toArray, stage.id, stage.latestInfo.attemptNumber, jobId, properties))
+      val n: Int = 2
+      for (i <- 0 until n) {
+        taskScheduler.submitTasks(new TaskSet(
+          tasks.toArray.slice(i * tasks.length / n, (i + 1) * tasks.length / n),
+          stage.id + (i * 100000), stage.latestInfo.attemptNumber, jobId, properties))
+      }
     } else {
       // Because we posted SparkListenerStageSubmitted earlier, we should mark
       // the stage as completed here in case there are no tasks to run
