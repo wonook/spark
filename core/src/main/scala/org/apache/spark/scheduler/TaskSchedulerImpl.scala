@@ -141,6 +141,8 @@ private[spark] class TaskSchedulerImpl(
 
   val rootPool: Pool = new Pool("", schedulingMode, 0, 0)
 
+  val taskSetToManager = new HashMap[TaskSet, TaskSetManager]
+
   // This is a var so that we can reset it for testing purposes.
   private[spark] var taskResultGetter = new TaskResultGetter(sc.env, this)
 
@@ -196,11 +198,16 @@ private[spark] class TaskSchedulerImpl(
     waitBackendReady()
   }
 
+  override def getTaskSetToManager: HashMap[TaskSet, TaskSetManager] = {
+    this.taskSetToManager
+  }
+
   override def submitTasks(taskSet: TaskSet) {
     val tasks = taskSet.tasks
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
     this.synchronized {
       val manager = createTaskSetManager(taskSet, maxTaskFailures)
+      taskSetToManager.put(taskSet, manager)
       val stage = taskSet.stageId
       val stageTaskSets =
         taskSetsByStageIdAndAttempt.getOrElseUpdate(stage, new HashMap[Int, TaskSetManager])
@@ -216,6 +223,7 @@ private[spark] class TaskSchedulerImpl(
       // TSM2 as zombie (it actually is).
       stageTaskSets.foreach { case (_, ts) =>
         ts.isZombie = true
+        ts.isZombieLatch.countDown()
       }
       stageTaskSets(taskSet.stageAttemptId) = manager
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)

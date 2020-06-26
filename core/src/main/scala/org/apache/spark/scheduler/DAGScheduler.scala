@@ -1214,9 +1214,11 @@ private[spark] class DAGScheduler(
         s"tasks are for partitions ${tasks.take(15).map(_.partitionId)})")
       val n: Int = 2
       for (i <- 0 until n) {
-        taskScheduler.submitTasks(new TaskSet(
+        val taskSet = new TaskSet(
           tasks.toArray.slice(i * tasks.length / n, (i + 1) * tasks.length / n),
-          stage.id + (i * 100000), stage.latestInfo.attemptNumber, jobId, properties))
+          stage.id + (i * 100000), stage.latestInfo.attemptNumber, jobId, properties)
+        taskScheduler.submitTasks(taskSet)
+        taskScheduler.getTaskSetToManager(taskSet).isZombieLatch.await()
       }
     } else {
       // Because we posted SparkListenerStageSubmitted earlier, we should mark
