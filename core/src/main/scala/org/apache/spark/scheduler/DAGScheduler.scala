@@ -1218,7 +1218,7 @@ private[spark] class DAGScheduler(
           tasks.toArray.slice(i * tasks.length / n, (i + 1) * tasks.length / n),
           stage.id + (i * 100000), stage.latestInfo.attemptNumber, jobId, properties)
         taskScheduler.submitTasks(taskSet)
-        taskScheduler.getTaskSetToManager(taskSet).isZombieLatch.await()
+        taskScheduler.getTaskSetToManager()(taskSet).isZombieLatch.await()
       }
     } else {
       // Because we posted SparkListenerStageSubmitted earlier, we should mark
