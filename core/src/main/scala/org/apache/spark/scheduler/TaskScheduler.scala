@@ -21,6 +21,7 @@ import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.AccumulatorV2
 
+import scala.collection.mutable
 import scala.collection.mutable.HashMap
 
 /**
@@ -42,7 +43,9 @@ private[spark] trait TaskScheduler {
 
   def start(): Unit
 
-  def getTaskSetToManager: HashMap[TaskSet, TaskSetManager]
+  def getTaskSetToManager(): HashMap[TaskSet, TaskSetManager] = {
+    new mutable.HashMap[TaskSet, TaskSetManager]()
+  }
 
   // Invoked after system has successfully initialized (typically in spark context).
   // Yarn uses this to bootstrap allocation of resources based on preferred locations,
