@@ -19,16 +19,15 @@ package org.apache.spark.scheduler
 
 import java.io.NotSerializableException
 import java.nio.ByteBuffer
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch}
 
 import scala.collection.immutable.Map
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.math.max
 import scala.util.control.NonFatal
-
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
-import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.internal.{Logging, config}
 import org.apache.spark.internal.config._
 import org.apache.spark.resource.ResourceInformation
 import org.apache.spark.scheduler.SchedulingMode._
@@ -139,6 +138,7 @@ private[spark] class TaskSetManager(
   // state in order to continue to track and account for the running tasks.
   // TODO: We should kill any running task attempts when the task set manager becomes a zombie.
   private[scheduler] var isZombie = false
+  val isZombieLatch = new CountDownLatch(1)
 
   // Whether the taskSet run tasks from a barrier stage. Spark must launch all the tasks at the
   // same time for a barrier stage.
@@ -740,6 +740,7 @@ private[spark] class TaskSetManager(
       successful(index) = true
       if (tasksSuccessful == numTasks) {
         isZombie = true
+        isZombieLatch.countDown()
       }
     } else {
       logInfo("Ignoring task-finished event for " + info.id + " in stage " + taskSet.id +
@@ -763,6 +764,7 @@ private[spark] class TaskSetManager(
         successful(index) = true
         if (tasksSuccessful == numTasks) {
           isZombie = true
+          isZombieLatch.countDown()
         }
         maybeFinishTaskSet()
       }
@@ -794,6 +796,7 @@ private[spark] class TaskSetManager(
           tasksSuccessful += 1
         }
         isZombie = true
+        isZombieLatch.countDown()
 
         if (fetchFailed.bmAddress != null) {
           blacklistTracker.foreach(_.updateBlacklistForFetchFailure(
@@ -869,6 +872,7 @@ private[spark] class TaskSetManager(
 
     if (tasks(index).isBarrier) {
       isZombie = true
+      isZombieLatch.countDown()
     }
 
     sched.dagScheduler.taskEnded(tasks(index), reason, null, accumUpdates, metricPeaks, info)
@@ -903,6 +907,7 @@ private[spark] class TaskSetManager(
     // TODO: Kill running tasks if we were not terminated due to a Mesos error
     sched.dagScheduler.taskSetFailed(taskSet, message, exception)
     isZombie = true
+    isZombieLatch.countDown()
     maybeFinishTaskSet()
   }
 

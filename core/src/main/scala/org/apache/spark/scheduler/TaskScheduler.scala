@@ -18,11 +18,12 @@
 package org.apache.spark.scheduler
 
 import scala.collection.mutable.Map
-
 import org.apache.spark.executor.ExecutorMetrics
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.AccumulatorV2
+
+import scala.collection.mutable.HashMap
 
 /**
  * Low-level task scheduler interface, currently implemented exclusively by
@@ -42,6 +43,10 @@ private[spark] trait TaskScheduler {
   def schedulingMode: SchedulingMode
 
   def start(): Unit
+
+  def getTaskSetToManager(): HashMap[TaskSet, TaskSetManager] = {
+    new HashMap[TaskSet, TaskSetManager]()
+  }
 
   // Invoked after system has successfully initialized (typically in spark context).
   // Yarn uses this to bootstrap allocation of resources based on preferred locations,
